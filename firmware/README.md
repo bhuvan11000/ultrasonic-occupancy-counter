@@ -1,5 +1,7 @@
 # Hardware verification tests
 
+> These are test sketches only. The production UNO, ESP32 and dashboard code is in `code/`.
+
 All sketches in this folder compile successfully with:
 
 - Arduino UNO: `arduino:avr:uno`
@@ -272,4 +274,4 @@ Run them in this order:
 3. **UART** — UNO and ESP32 together
 4. **Wi-Fi scan** — ESP32 networking
 
-After all four pass, the hardware is verified. The next step is the actual room/queue counting state machine and the local dashboard server.
+After all four pass, the hardware is verified. The production firmware and local dashboard are in `code/` — see `code/README.md`.

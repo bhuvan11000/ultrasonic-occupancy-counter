@@ -1,0 +1,8 @@
+# Local Wi-Fi credentials
+code/esp32/local_dashboard/secrets.h
+
+# Arduino build artifacts
+build/
+*.bin
+*.elf
+*.map
