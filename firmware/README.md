@@ -75,6 +75,89 @@ If one LED does not light:
 - Swap the LED only after disconnecting power.
 - The UNO onboard D13 LED can confirm that the UNO itself is running.
 
+
+---
+
+# Test 1b — dedicated buzzer check (D11)
+
+Sketch:
+
+`firmware/uno/01b_buzzer_test/01b_buzzer_test.ino`
+
+The Lab 5 source confirms the bench buzzer is a **3-pin active buzzer module** with **active-low I/O**:
+
+- `VCC` → 5 V
+- `GND` → GND
+- `I/O` → D11
+- `I/O = LOW` → sound
+- `I/O = HIGH` → silent
+
+The old Lab 5 `buzzer_test.ino` used **D8**, not D11. If the module's I/O wire is still on D8, the current Test 1 will never make it beep.
+
+Upload `01b_buzzer_test` and watch for a 2-second on / 2-second off pattern. If it beeps during `D11 = LOW`, the type and wiring are confirmed. If it beeps during `D11 = HIGH`, it is an active-high module. If it never beeps, check that VCC/GND are connected and that I/O is on D11.
+
+
+---
+
+# Debugging the two failed tests
+
+## Check this first: a split power rail
+
+Both failures can have one common cause: the buzzer and sensor B may be plugged into a section of the breadboard power rail that is not connected to the UNO.
+
+Measure **at the component pins**, not at the UNO:
+
+- Buzzer module `VCC` to `GND`: should be about 5 V
+- Sensor B `VCC` to `GND`: should be about 5 V
+- Continuity from the left `+` rail to the right `+` rail
+- Continuity from the left `−` rail to the right `−` rail
+
+Some MB-102 boards have a break in the middle of each power rail. If either rail is split, add a jumper across the break or move the buzzer and sensor B to the powered section.
+
+If both modules measure 5 V at their own pins, continue below.
+
+## Buzzer does not beep on D11
+
+The Lab 5 `uno_node.ino` source says the bench module is a 3-pin **active-low** module:
+
+- `I/O = LOW` -> sound
+- `I/O = HIGH` -> silent
+- The old working sketch used **D8**, not D11.
+
+Upload `firmware/uno/01c_buzzer_diagnostic/01c_buzzer_diagnostic.ino` at 115200 baud. It tests:
+
+1. DC LOW for 2 seconds — active-low module should sound
+2. DC HIGH for 2 seconds — active-high module should sound
+3. 2 kHz tone for 2 seconds — passive buzzer should sound
+
+The onboard D13 LED mirrors D11. If D13 changes but the buzzer never makes any sound, the problem is the module wiring/power, not the UNO output. Check:
+
+- Module `VCC` to 5 V and `GND` to GND, measured at the module pins
+- Module `I/O` is on D11, not still on D8
+- D11 changes between about 0 V and 5 V
+- If it works on D8 with the old sketch but not D11, test D11 with a resistor + LED, or move the I/O wire to D12 and change `BUZZER_PIN` to 12.
+
+## Sensor B does not respond
+
+Run `firmware/uno/04_sensor_pin_loopback/04_sensor_pin_loopback.ino`.
+
+1. Disconnect both sensors.
+2. Jumper D4 to D5. Both lines should report `HIGH=1 LOW=0`.
+3. Move the jumper to D6 and D7. Both lines should report `HIGH=1 LOW=0`.
+
+If D6/D7 fail the loopback but D4/D5 pass, the UNO pin or breadboard row is the problem.
+
+Next, swap the sensors at the UNO end:
+
+- Sensor B TRIG/ECHO -> D4/D5
+- Sensor A TRIG/ECHO -> D6/D7
+
+Run the ultrasonic test again.
+
+- If B works on D4/D5 and A fails on D6/D7, the D6/D7 path is faulty.
+- If B still fails on D4/D5, the problem is sensor B's power or its own wiring/position.
+- If A works on D6/D7, the UNO pins are fine and the original sensor B connector/wiring was the issue.
+
 ---
 
 # Test 2 — HC-SR04 sensors
