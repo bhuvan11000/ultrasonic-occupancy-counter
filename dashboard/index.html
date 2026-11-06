@@ -1,0 +1,981 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#16233a">
+<title>Room / Queue Counter</title>
+<style>
+  :root {
+    --paper: #f2ede2;
+    --paper-2: #fffaf0;
+    --ink: #16233a;
+    --ink-2: #26344c;
+    --muted: #6b7280;
+    --line: #d4c8b4;
+    --line-strong: #b9aa93;
+    --orange: #e4572e;
+    --orange-soft: #f7d6c9;
+    --teal: #0f766e;
+    --teal-soft: #cde9e5;
+    --blue: #1d4ed8;
+    --green: #15803d;
+    --red: #b91c1c;
+    --shadow: 0 1px 0 rgba(22, 35, 58, .05), 0 12px 32px rgba(22, 35, 58, .07);
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "Liberation Mono", monospace;
+    --sans: "Trebuchet MS", "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html { min-height: 100%; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    color: var(--ink);
+    font-family: var(--sans);
+    background-color: var(--paper);
+    background-image:
+      linear-gradient(rgba(22, 35, 58, .045) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(22, 35, 58, .045) 1px, transparent 1px);
+    background-size: 28px 28px;
+  }
+  button, input { font: inherit; }
+  button { cursor: pointer; }
+  button:focus-visible, input:focus-visible {
+    outline: 3px solid var(--orange);
+    outline-offset: 2px;
+  }
+
+  .shell {
+    width: min(1380px, calc(100% - 40px));
+    margin: 0 auto;
+    padding: 24px 0 40px;
+  }
+
+  /* Header */
+  .topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    padding: 10px 0 22px;
+    border-bottom: 1px solid var(--line-strong);
+  }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand-mark {
+    width: 50px;
+    height: 50px;
+    display: grid;
+    place-items: center;
+    background: var(--ink);
+    color: var(--paper-2);
+    font-family: var(--mono);
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: -.06em;
+    border: 2px solid var(--ink);
+    box-shadow: 4px 4px 0 var(--orange);
+  }
+  .brand h1 {
+    margin: 0;
+    font-size: clamp(1.15rem, 2.1vw, 1.7rem);
+    letter-spacing: -.04em;
+    line-height: 1;
+  }
+  .brand p {
+    margin: 5px 0 0;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+  .status-pill, .mode-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-height: 34px;
+    padding: 7px 11px;
+    border: 1px solid var(--line-strong);
+    background: rgba(255, 250, 240, .78);
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .mode-pill {
+    color: var(--orange);
+    border-color: var(--orange);
+    background: var(--orange-soft);
+    font-weight: 700;
+  }
+  .live-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--muted);
+    box-shadow: 0 0 0 4px rgba(107, 114, 128, .12);
+  }
+  .is-live .live-dot {
+    background: var(--green);
+    box-shadow: 0 0 0 4px rgba(21, 128, 61, .14);
+    animation: breathe 2s ease-in-out infinite;
+  }
+  .is-offline .live-dot {
+    background: var(--red);
+    box-shadow: 0 0 0 4px rgba(185, 28, 28, .14);
+  }
+
+  /* Hero */
+  .hero {
+    display: grid;
+    grid-template-columns: minmax(0, 1.55fr) minmax(290px, .45fr);
+    gap: 16px;
+    margin-top: 18px;
+  }
+  .count-card {
+    position: relative;
+    overflow: hidden;
+    min-height: 330px;
+    padding: clamp(24px, 4vw, 48px);
+    color: var(--paper-2);
+    background:
+      linear-gradient(135deg, rgba(255,255,255,.055), transparent 40%),
+      var(--ink);
+    border: 1px solid var(--ink);
+    box-shadow: var(--shadow);
+  }
+  .count-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 8px;
+    background: var(--orange);
+  }
+  .count-card::after {
+    content: "LOCAL / ESP32";
+    position: absolute;
+    right: 24px;
+    bottom: 20px;
+    color: rgba(255, 250, 240, .25);
+    font-family: var(--mono);
+    font-size: .65rem;
+    letter-spacing: .16em;
+  }
+  .eyebrow {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    color: #b9c6d8;
+    font-family: var(--mono);
+    font-size: .72rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  .eyebrow::before {
+    content: "";
+    width: 20px;
+    height: 1px;
+    background: var(--orange);
+  }
+  .count {
+    margin: 18px 0 10px;
+    font-family: var(--mono);
+    font-size: clamp(5.5rem, 16vw, 11rem);
+    font-weight: 800;
+    line-height: .82;
+    letter-spacing: -.12em;
+    color: var(--paper-2);
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 34px rgba(228, 87, 46, .16);
+  }
+  .count.pop { animation: count-pop 320ms ease-out; }
+  .count-meta {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    min-height: 28px;
+  }
+  .count-meta strong { color: var(--orange); font-family: var(--mono); }
+  .count-meta span { color: #b9c6d8; font-size: .9rem; }
+  .full-badge {
+    display: none;
+    padding: 5px 8px;
+    border: 1px solid var(--orange);
+    color: var(--orange);
+    font-family: var(--mono);
+    font-size: .67rem;
+    letter-spacing: .1em;
+    text-transform: uppercase;
+  }
+  .count-card.is-full .full-badge { display: inline-block; }
+  .count-card.is-full::before { background: var(--red); }
+
+  .capacity-wrap { margin-top: 26px; }
+  .capacity-label {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    color: #b9c6d8;
+    font-family: var(--mono);
+    font-size: .67rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .capacity-track {
+    position: relative;
+    height: 14px;
+    margin-top: 8px;
+    background:
+      repeating-linear-gradient(90deg, rgba(255,250,240,.12) 0 14px, transparent 14px 17px),
+      rgba(255,250,240,.08);
+    border: 1px solid rgba(255,250,240,.24);
+  }
+  .capacity-fill {
+    height: 100%;
+    width: var(--fill, 0%);
+    background: var(--orange);
+    transition: width 420ms cubic-bezier(.2,.8,.2,1), background-color 200ms ease;
+  }
+  .count-card.is-full .capacity-fill { background: var(--red); }
+
+  .hero-side {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1px;
+    background: var(--line-strong);
+    border: 1px solid var(--line-strong);
+    box-shadow: var(--shadow);
+  }
+  .metric {
+    min-height: 116px;
+    padding: 18px;
+    background: var(--paper-2);
+  }
+  .metric span, .diag-grid dt {
+    display: block;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .metric strong {
+    display: block;
+    margin-top: 10px;
+    font-family: var(--mono);
+    font-size: clamp(1.55rem, 3.5vw, 2.3rem);
+    line-height: 1;
+    letter-spacing: -.07em;
+  }
+  .last-event {
+    grid-column: 1 / -1;
+    padding: 16px 18px;
+    background: var(--ink-2);
+    color: var(--paper-2);
+    font-family: var(--mono);
+    font-size: .72rem;
+    line-height: 1.5;
+  }
+  .last-event span { color: #b9c6d8; display: block; margin-bottom: 4px; }
+
+  /* General panels */
+  .panel {
+    margin-top: 16px;
+    padding: 22px;
+    background: rgba(255, 250, 240, .9);
+    border: 1px solid var(--line-strong);
+    box-shadow: var(--shadow);
+  }
+  .panel-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 18px;
+    margin-bottom: 18px;
+  }
+  .panel-head h2 {
+    margin: 0;
+    font-size: 1.1rem;
+    letter-spacing: -.03em;
+  }
+  .panel-head p, .panel-head .hint {
+    margin: 0;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: .66rem;
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+
+  /* Sensors */
+  .sensor-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .sensor {
+    padding: 18px;
+    background: var(--paper-2);
+    border: 1px solid var(--line);
+  }
+  .sensor.is-active { border-color: var(--orange); box-shadow: inset 0 3px 0 var(--orange); }
+  .sensor.is-fault { border-color: var(--red); }
+  .sensor-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+  }
+  .sensor-top strong { font-size: .76rem; }
+  .badge {
+    padding: 4px 7px;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    font-size: .62rem;
+    letter-spacing: .07em;
+  }
+  .sensor.is-active .badge { color: var(--orange); border-color: var(--orange); }
+  .sensor.is-fault .badge { color: var(--red); border-color: var(--red); }
+  .reading {
+    display: flex;
+    align-items: baseline;
+    gap: 7px;
+    margin: 16px 0 12px;
+  }
+  .reading strong {
+    font-family: var(--mono);
+    font-size: clamp(2rem, 5vw, 3.2rem);
+    line-height: .9;
+    letter-spacing: -.09em;
+    font-variant-numeric: tabular-nums;
+  }
+  .reading span { color: var(--muted); font-family: var(--mono); font-size: .7rem; }
+  .beam {
+    position: relative;
+    height: 14px;
+    background: repeating-linear-gradient(90deg, #e6ddce 0 8px, transparent 8px 10px);
+    border: 1px solid var(--line);
+  }
+  .beam-fill {
+    height: 100%;
+    width: var(--level, 0%);
+    background: var(--teal);
+    transition: width 300ms ease, background-color 200ms ease;
+  }
+  .sensor.is-active .beam-fill { background: var(--orange); }
+  .sensor.is-fault .beam-fill { background: var(--red); }
+  .beam-threshold {
+    position: absolute;
+    top: -4px;
+    bottom: -4px;
+    left: var(--threshold, 26.6%);
+    width: 0;
+    border-left: 2px dashed var(--ink);
+    opacity: .55;
+  }
+  .sensor-foot {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    margin-top: 10px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: .64rem;
+  }
+  .sensor-foot b { color: var(--ink); }
+
+  /* Lower layout */
+  .lower {
+    display: grid;
+    grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr);
+    gap: 16px;
+  }
+  .lower .panel { margin-top: 16px; }
+
+  /* Controls */
+  .control-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .control { min-width: 0; }
+  .control > label {
+    display: block;
+    margin-bottom: 7px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+  }
+  .segmented { display: flex; gap: 6px; }
+  .segmented button, .action {
+    min-height: 38px;
+    padding: 8px 12px;
+    border: 1px solid var(--line-strong);
+    background: var(--paper-2);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: .7rem;
+    letter-spacing: .04em;
+    text-transform: uppercase;
+    transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+  }
+  .segmented button:hover, .action:hover { border-color: var(--ink); }
+  .segmented button[aria-pressed="true"] {
+    color: var(--paper-2);
+    background: var(--ink);
+    border-color: var(--ink);
+  }
+  .inline-form { display: flex; gap: 6px; }
+  .inline-form input {
+    width: 100%;
+    min-width: 0;
+    min-height: 38px;
+    padding: 8px 10px;
+    border: 1px solid var(--line-strong);
+    background: #fffdf8;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: .78rem;
+  }
+  .inline-form button { flex: 0 0 auto; }
+  .action.primary { color: var(--paper-2); background: var(--orange); border-color: var(--orange); }
+  .action.primary:hover { background: #c94721; border-color: #c94721; }
+  .action.danger { color: var(--red); border-color: rgba(185,28,28,.45); }
+  .action-row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+  .toast {
+    min-height: 24px;
+    margin-top: 14px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: .68rem;
+  }
+  .toast.ok { color: var(--green); }
+  .toast.bad { color: var(--red); }
+
+  /* Event tape */
+  .events-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 330px;
+    overflow: auto;
+    border-top: 1px solid var(--line);
+  }
+  .event-row {
+    display: grid;
+    grid-template-columns: 74px 1fr 56px 60px;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 4px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: .7rem;
+  }
+  .event-row time { color: var(--muted); font-size: .62rem; }
+  .event-type { font-weight: 700; letter-spacing: .04em; }
+  .event-IN .event-type, .event-FULL .event-type { color: var(--green); }
+  .event-OUT .event-type { color: var(--orange); }
+  .event-INVALID .event-type, .event-TIMEOUT .event-type { color: var(--red); }
+  .event-MODE .event-type, .event-CAP .event-type, .event-RESET .event-type,
+  .event-CORRECT .event-type, .event-THRESH .event-type { color: var(--blue); }
+  .event-delta { text-align: right; }
+  .event-count { color: var(--muted); text-align: right; }
+  .empty {
+    padding: 22px 4px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: .72rem;
+  }
+
+  /* Diagnostics */
+  .diag-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 20px;
+    margin: 0;
+  }
+  .diag-grid div {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .diag-grid dt, .diag-grid dd { margin: 0; }
+  .diag-grid dd {
+    max-width: 62%;
+    overflow: hidden;
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: .68rem;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 16px;
+    margin-top: 20px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: .64rem;
+    letter-spacing: .04em;
+  }
+
+  @keyframes breathe {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    50% { transform: scale(.72); opacity: .55; }
+  }
+  @keyframes count-pop {
+    0% { transform: translateY(0) scale(1); }
+    45% { transform: translateY(-5px) scale(1.025); color: var(--orange); }
+    100% { transform: translateY(0) scale(1); }
+  }
+
+  @media (max-width: 980px) {
+    .hero, .lower { grid-template-columns: 1fr; }
+    .hero-side { grid-template-columns: repeat(4, 1fr); }
+    .last-event { grid-column: 1 / -1; }
+  }
+  @media (max-width: 680px) {
+    .shell { width: min(100% - 24px, 1380px); padding-top: 14px; }
+    .topbar { align-items: flex-start; flex-direction: column; }
+    .status { justify-content: flex-start; }
+    .count-card { min-height: 280px; }
+    .hero-side { grid-template-columns: 1fr 1fr; }
+    .sensor-grid, .control-grid, .diag-grid { grid-template-columns: 1fr; }
+    .panel { padding: 17px; }
+    .event-row { grid-template-columns: 66px 1fr 48px 52px; }
+    footer { flex-direction: column; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .001ms !important; }
+  }
+</style>
+</head>
+<body>
+<div class="shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">R/Q</div>
+      <div>
+        <h1>Capacity Counter</h1>
+        <p>Local ESP32 control board</p>
+      </div>
+    </div>
+    <div class="status">
+      <div id="linkPill" class="status-pill">
+        <span class="live-dot" aria-hidden="true"></span>
+        <span id="linkText">Connecting</span>
+      </div>
+      <div id="modePill" class="mode-pill">Room</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" aria-label="Current count">
+      <article id="countCard" class="count-card">
+        <div class="eyebrow">Current <span id="countLabel">occupancy</span></div>
+        <div id="count" class="count" aria-live="polite">0</div>
+        <div class="count-meta">
+          <strong id="available">10 spaces available</strong>
+          <span id="countHint">of 10 capacity</span>
+          <span id="fullBadge" class="full-badge">At capacity</span>
+        </div>
+        <div class="capacity-wrap">
+          <div class="capacity-label">
+            <span>Capacity use</span>
+            <span id="capacityPercent">0%</span>
+          </div>
+          <div class="capacity-track" role="progressbar" aria-label="Capacity used" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="capacityTrack">
+            <div id="capacityFill" class="capacity-fill"></div>
+          </div>
+        </div>
+      </article>
+
+      <aside class="hero-side" aria-label="Session summary">
+        <div class="metric"><span>Capacity</span><strong id="capacity">10</strong></div>
+        <div class="metric"><span>Entries</span><strong id="inTotal">0</strong></div>
+        <div class="metric"><span>Exits</span><strong id="outTotal">0</strong></div>
+        <div class="metric"><span>Net flow</span><strong id="netFlow">0</strong></div>
+        <div class="last-event"><span>Last event</span><strong id="lastEvent">No events yet</strong></div>
+      </aside>
+    </section>
+
+    <section class="panel" aria-labelledby="sensorsTitle">
+      <div class="panel-head">
+        <h2 id="sensorsTitle">Threshold beams</h2>
+        <p>Distance in cm · dashed line = threshold</p>
+      </div>
+      <div class="sensor-grid">
+        <article id="sensorA" class="sensor">
+          <div class="sensor-top">
+            <strong id="labelA">Sensor A · Outside</strong>
+            <span id="stateA" class="badge">Clear</span>
+          </div>
+          <div class="reading"><strong id="distA">—</strong><span>cm</span></div>
+          <div class="beam" aria-hidden="true">
+            <div id="beamA" class="beam-fill"></div>
+            <div id="thrA" class="beam-threshold"></div>
+          </div>
+          <div class="sensor-foot">
+            <span>Threshold <b id="thresholdA">80</b> cm</span>
+            <span id="faultA"></span>
+          </div>
+        </article>
+
+        <article id="sensorB" class="sensor">
+          <div class="sensor-top">
+            <strong id="labelB">Sensor B · Inside</strong>
+            <span id="stateB" class="badge">Clear</span>
+          </div>
+          <div class="reading"><strong id="distB">—</strong><span>cm</span></div>
+          <div class="beam" aria-hidden="true">
+            <div id="beamB" class="beam-fill"></div>
+            <div id="thrB" class="beam-threshold"></div>
+          </div>
+          <div class="sensor-foot">
+            <span>Threshold <b id="thresholdB">80</b> cm</span>
+            <span id="faultB"></span>
+          </div>
+        </article>
+      </div>
+    </section>
+
+    <div class="lower">
+      <section class="panel" aria-labelledby="controlsTitle">
+        <div class="panel-head">
+          <h2 id="controlsTitle">Controls</h2>
+          <span class="hint">Changes go to the UNO</span>
+        </div>
+        <div class="control-grid">
+          <div class="control">
+            <label>Operating mode</label>
+            <div class="segmented" role="group" aria-label="Operating mode">
+              <button type="button" data-mode="room" aria-pressed="true">Room</button>
+              <button type="button" data-mode="queue" aria-pressed="false">Queue</button>
+            </div>
+          </div>
+          <form id="capacityForm" class="control">
+            <label for="capacityInput">Capacity</label>
+            <div class="inline-form">
+              <input id="capacityInput" type="number" min="1" max="99" step="1" value="10" inputmode="numeric">
+              <button class="action" type="submit">Set</button>
+            </div>
+          </form>
+          <form id="thresholdForm" class="control">
+            <label for="thresholdInput">Detection threshold (cm)</label>
+            <div class="inline-form">
+              <input id="thresholdInput" type="number" min="10" max="300" step="1" value="80" inputmode="numeric">
+              <button class="action" type="submit">Set</button>
+            </div>
+          </form>
+          <form id="correctForm" class="control">
+            <label for="correctInput">Correct count to</label>
+            <div class="inline-form">
+              <input id="correctInput" type="number" min="0" max="999" step="1" value="0" inputmode="numeric">
+              <button class="action" type="submit">Set</button>
+            </div>
+          </form>
+        </div>
+        <div class="action-row">
+          <button id="resetBtn" class="action danger" type="button">Reset count</button>
+          <button id="beepBtn" class="action" type="button">Test buzzer</button>
+        </div>
+        <div id="toast" class="toast" role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="panel" aria-labelledby="eventsTitle">
+        <div class="panel-head">
+          <h2 id="eventsTitle">Event tape</h2>
+          <span id="eventCount" class="hint">0 events</span>
+        </div>
+        <ol id="eventsList" class="events-list">
+          <li class="empty">No events yet. The tape updates when the UNO reports a crossing.</li>
+        </ol>
+      </section>
+    </div>
+
+    <section class="panel" aria-labelledby="diagTitle">
+      <div class="panel-head">
+        <h2 id="diagTitle">Device</h2>
+        <span class="hint">ESP32 local link</span>
+      </div>
+      <dl class="diag-grid">
+        <div><dt>Dashboard IP</dt><dd id="diagIp">—</dd></div>
+        <div><dt>Wi-Fi</dt><dd id="diagSsid">—</dd></div>
+        <div><dt>Signal</dt><dd id="diagRssi">—</dd></div>
+        <div><dt>ESP uptime</dt><dd id="diagUptime">—</dd></div>
+        <div><dt>Free heap</dt><dd id="diagHeap">—</dd></div>
+        <div><dt>UNO link</dt><dd id="diagUno">—</dd></div>
+        <div><dt>Last state</dt><dd id="diagAge">—</dd></div>
+        <div><dt>Parse errors</dt><dd id="diagErrors">—</dd></div>
+        <div><dt>Last command</dt><dd id="diagCommand">—</dd></div>
+        <div><dt>Last ack</dt><dd id="diagAck">—</dd></div>
+      </dl>
+    </section>
+  </main>
+
+  <footer>
+    <span>LOCAL ONLY · ESP32 HTTP · NO CLOUD</span>
+    <span id="footerUpdated">Waiting for first update</span>
+  </footer>
+</div>
+
+<script>
+(() => {
+  const MAX_BEAM_CM = 300;
+  const $ = (id) => document.getElementById(id);
+  let lastCount = null;
+  let toastTimer = 0;
+
+  function setLink(mode, text) {
+    const pill = $("linkPill");
+    pill.classList.remove("is-live", "is-offline");
+    if (mode === "live") pill.classList.add("is-live");
+    if (mode === "offline") pill.classList.add("is-offline");
+    $("linkText").textContent = text;
+  }
+
+  function toast(message, ok) {
+    const el = $("toast");
+    el.textContent = message;
+    el.classList.toggle("ok", !!ok);
+    el.classList.toggle("bad", !ok);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => {
+      el.textContent = "";
+      el.classList.remove("ok", "bad");
+    }, 3200);
+  }
+
+  function formatAge(ms) {
+    if (ms === null || ms === undefined || ms < 0) return "—";
+    if (ms < 1500) return "just now";
+    const s = Math.floor(ms / 1000);
+    if (s < 60) return s + "s ago";
+    const m = Math.floor(s / 60);
+    if (m < 60) return m + "m ago";
+    const h = Math.floor(m / 60);
+    return h + "h ago";
+  }
+
+  function formatUptime(ms) {
+    if (!Number.isFinite(ms) || ms < 0) return "—";
+    const total = Math.floor(ms / 1000);
+    const d = Math.floor(total / 86400);
+    const h = Math.floor((total % 86400) / 3600);
+    const m = Math.floor((total % 3600) / 60);
+    const s = total % 60;
+    const hh = String(h).padStart(2, "0");
+    const mm = String(m).padStart(2, "0");
+    const ss = String(s).padStart(2, "0");
+    return d > 0 ? d + "d " + hh + ":" + mm + ":" + ss : hh + ":" + mm + ":" + ss;
+  }
+
+  function formatDistance(value) {
+    return value === null || value === undefined || value < 0 ? "—" : String(value);
+  }
+
+  function setSensor(letter, distance, active, fault, threshold) {
+    const card = $("sensor" + letter);
+    const dist = $("dist" + letter);
+    const beam = $("beam" + letter);
+    const thr = $("thr" + letter);
+    const badge = $("state" + letter);
+    const faultLabel = $("fault" + letter);
+
+    card.classList.toggle("is-active", active);
+    card.classList.toggle("is-fault", fault);
+    dist.textContent = formatDistance(distance);
+    const level = distance > 0 ? Math.min(distance, MAX_BEAM_CM) / MAX_BEAM_CM * 100 : 0;
+    beam.style.setProperty("--level", level + "%");
+    thr.style.setProperty("--threshold", Math.min(threshold, MAX_BEAM_CM) / MAX_BEAM_CM * 100 + "%");
+    $("threshold" + letter).textContent = String(threshold);
+    badge.textContent = fault ? "No echo" : active ? "Triggered" : "Clear";
+    faultLabel.textContent = fault ? "check sensor" : "";
+  }
+
+  function renderEvents(events) {
+    const list = $("eventsList");
+    list.textContent = "";
+    $("eventCount").textContent = events.length + (events.length === 1 ? " event" : " events");
+
+    if (!events.length) {
+      const li = document.createElement("li");
+      li.className = "empty";
+      li.textContent = "No events yet. The tape updates when the UNO reports a crossing.";
+      list.appendChild(li);
+      return;
+    }
+
+    for (const event of events) {
+      const li = document.createElement("li");
+      li.className = "event-row event-" + String(event.type || "UNKNOWN").toUpperCase();
+
+      const time = document.createElement("time");
+      time.textContent = formatAge(event.ageMs);
+
+      const type = document.createElement("span");
+      type.className = "event-type";
+      type.textContent = event.type || "EVENT";
+
+      const delta = document.createElement("span");
+      delta.className = "event-delta";
+      delta.textContent = event.delta > 0 ? "+" + event.delta : event.delta < 0 ? String(event.delta) : "—";
+
+      const count = document.createElement("span");
+      count.className = "event-count";
+      count.textContent = "#" + String(event.count ?? "—");
+
+      li.append(time, type, delta, count);
+      list.appendChild(li);
+    }
+  }
+
+  function render(data) {
+    const device = data.device || {};
+    const esp = data.esp || {};
+    const count = Number(device.count) || 0;
+    const capacity = Math.max(1, Number(device.capacity) || 1);
+    const full = count >= capacity;
+    const available = Math.max(0, capacity - count);
+    const mode = device.mode === "queue" ? "queue" : "room";
+    const flags = Number(device.flags) || 0;
+    const activeA = !!(flags & 1);
+    const activeB = !!(flags & 2);
+    const faultA = !!(flags & 8);
+    const faultB = !!(flags & 16);
+
+    const countEl = $("count");
+    countEl.textContent = String(count);
+    if (lastCount !== null && count !== lastCount) {
+      countEl.classList.remove("pop");
+      void countEl.offsetWidth;
+      countEl.classList.add("pop");
+    }
+    lastCount = count;
+
+    $("countLabel").textContent = mode === "queue" ? "queue length" : "occupancy";
+    $("modePill").textContent = mode === "queue" ? "Queue" : "Room";
+    $("countHint").textContent = "of " + capacity + " capacity";
+    $("available").textContent = full
+      ? "At capacity"
+      : available + (available === 1 ? " space available" : " spaces available");
+    $("countCard").classList.toggle("is-full", full);
+    $("capacity").textContent = String(capacity);
+    $("inTotal").textContent = String(device.in ?? 0);
+    $("outTotal").textContent = String(device.out ?? 0);
+    $("netFlow").textContent = String((Number(device.in) || 0) - (Number(device.out) || 0));
+    $("capacityFill").style.setProperty("--fill", Math.min(100, count / capacity * 100) + "%");
+    $("capacityPercent").textContent = Math.round(Math.min(100, count / capacity * 100)) + "%";
+    const track = $("capacityTrack");
+    track.setAttribute("aria-valuenow", String(Math.round(Math.min(100, count / capacity * 100))));
+
+    $("labelA").textContent = mode === "queue" ? "Sensor A · Queue in" : "Sensor A · Outside";
+    $("labelB").textContent = mode === "queue" ? "Sensor B · Queue out" : "Sensor B · Inside";
+    setSensor("A", device.distanceA, activeA, faultA, Number(device.threshold) || 80);
+    setSensor("B", device.distanceB, activeB, faultB, Number(device.threshold) || 80);
+
+    document.querySelectorAll("[data-mode]").forEach((button) => {
+      button.setAttribute("aria-pressed", button.dataset.mode === mode ? "true" : "false");
+    });
+
+    if (document.activeElement !== $("capacityInput")) $("capacityInput").value = String(capacity);
+    if (document.activeElement !== $("thresholdInput")) $("thresholdInput").value = String(Number(device.threshold) || 80);
+
+    const events = Array.isArray(data.events) ? data.events : [];
+    renderEvents(events);
+    if (events.length) {
+      $("lastEvent").textContent = events[0].type + " · " + formatAge(events[0].ageMs);
+    } else {
+      $("lastEvent").textContent = "No events yet";
+    }
+
+    $("diagIp").textContent = esp.ip || "—";
+    $("diagSsid").textContent = esp.ssid ? esp.ssid + (esp.wifiMode ? " · " + esp.wifiMode.toUpperCase() : "") : "—";
+    $("diagRssi").textContent = Number.isFinite(esp.rssi) && esp.rssi !== 0 ? esp.rssi + " dBm" : "—";
+    $("diagUptime").textContent = formatUptime(esp.uptimeMs);
+    $("diagHeap").textContent = Number.isFinite(esp.freeHeap) ? Math.round(esp.freeHeap / 1024) + " KB" : "—";
+    $("diagUno").textContent = device.online ? "Online" : "Lost";
+    $("diagAge").textContent = formatAge(esp.lastStateAgeMs);
+    $("diagErrors").textContent = String(esp.parseErrors ?? "—");
+    $("diagCommand").textContent = esp.lastCommand || "—";
+    $("diagAck").textContent = esp.lastAck || "—";
+    $("footerUpdated").textContent = "Updated " + new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+    setLink(device.online ? "live" : "offline", device.online ? "Live" : "UNO link lost");
+  }
+
+  async function refresh() {
+    try {
+      const response = await fetch("/api/state", { cache: "no-store" });
+      if (!response.ok) throw new Error("HTTP " + response.status);
+      render(await response.json());
+    } catch (error) {
+      setLink("offline", "Dashboard offline");
+    }
+  }
+
+  async function sendCommand(cmd, value) {
+    const body = new URLSearchParams({ cmd });
+    if (value !== undefined && value !== null && value !== "") body.set("value", value);
+    try {
+      const response = await fetch("/api/command", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || !data.ok) {
+        toast(data.error || "Command failed", false);
+        return;
+      }
+      toast("Command sent", true);
+      setTimeout(refresh, 350);
+    } catch (error) {
+      toast("Could not reach the ESP32", false);
+    }
+  }
+
+  document.querySelectorAll("[data-mode]").forEach((button) => {
+    button.addEventListener("click", () => sendCommand("mode", button.dataset.mode));
+  });
+
+  $("capacityForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    sendCommand("capacity", $("capacityInput").value);
+  });
+  $("thresholdForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    sendCommand("threshold", $("thresholdInput").value);
+  });
+  $("correctForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    sendCommand("correct", $("correctInput").value);
+  });
+  $("resetBtn").addEventListener("click", () => {
+    if (confirm("Reset the current count to zero? Entry and exit totals stay.")) sendCommand("reset");
+  });
+  $("beepBtn").addEventListener("click", () => sendCommand("beep"));
+
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) refresh();
+  });
+
+  setLink("offline", "Connecting");
+  refresh();
+  setInterval(refresh, 1000);
+})();
+</script>
+</body>
+</html>
