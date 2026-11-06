@@ -59,12 +59,6 @@ A local IoT mini-project that counts people entering or leaving a room, or count
 Full wiring guide:
 
 - [`hardware/wiring-guide.pdf`](hardware/wiring-guide.pdf)
-- [`hardware/circuit-wiring-v2.svg`](hardware/circuit-wiring-v2.svg)
-- Step-by-step direct-wire pages:
-  - [`hardware/wiring-01-power.svg`](hardware/wiring-01-power.svg)
-  - [`hardware/wiring-02-sensors.svg`](hardware/wiring-02-sensors.svg)
-  - [`hardware/wiring-03-leds-buzzer.svg`](hardware/wiring-03-leds-buzzer.svg)
-  - [`hardware/wiring-04-uart.svg`](hardware/wiring-04-uart.svg)
 
 ### Pin map
 
