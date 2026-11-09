@@ -146,7 +146,8 @@ tools/
 ```
 
 Detailed production notes: [`code/README.md`](code/README.md)  
-Hardware test guide: [`firmware/README.md`](firmware/README.md)
+Hardware test guide: [`firmware/README.md`](firmware/README.md)  
+Hosted dashboard handoff: [`docs/CLOUD_DASHBOARD_HANDOFF.md`](docs/CLOUD_DASHBOARD_HANDOFF.md)
 
 ---
 
