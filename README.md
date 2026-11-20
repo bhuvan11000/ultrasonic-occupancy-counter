@@ -7,7 +7,7 @@ A local IoT mini-project that counts people entering or leaving a room, or count
 - **No cloud or MQTT** is used in this version.
 - The hosted dashboard can be added later without changing the UNO firmware.
 
-![Wiring overview](hardware/circuit-wiring-v2.png)
+![Wiring overview](hardware/circuit-wiring.png)
 
 ---
 
